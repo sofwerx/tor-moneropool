@@ -1,0 +1,163 @@
+version: '2'
+
+networks: 
+  default:
+    driver: bridge
+  tor:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+
+volumes:
+  moneroredis-data:
+    driver: local
+  tor-hidden_services:
+    driver: local
+  monero-data:
+    driver: local
+#  nvidia_driver:
+#    external:
+#      name: "nvidia_driver_384.81"
+#      name: "nvidia_driver_384.90"
+
+services:
+
+  # Enable docker to auto-run any architecture image using qemu
+  #     docker run --rm --privileged multiarch/qemu-user-static:register --reset
+  multiarch:
+    container_name: multiarch
+    image: multiarch/qemu-user-static:register
+    privileged: true
+
+  tor:
+    container_name: tor
+    hostname: tor
+    build: tor/
+    image: sofwerx/tor
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - tor-hidden_services:/var/lib/tor/hidden_services
+    #ports:
+      #- 9001:9001
+      #- 9030:9030
+      #- 9050:9050
+    networks:
+      - "default"
+      - "tor"
+    environment:
+      ONIONBOAT_HOSTNAME: tor
+      ONIONBOAT_PORT: "9050"
+    restart: always
+    labels:
+      - "traefik.enable=false"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+  monero:
+    container_name: monero
+    hostname: monero
+    build: monero/
+    image: sofwerx/monero
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 18080:18080
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - monero-data:/home/monero/.bitmonero
+    networks:
+      - "tor"
+#    blkio_config:
+#      device_write_iops:
+#      - path: /dev/sda
+#        rate: 200
+    restart: always
+    labels:
+      - "traefik.enable=false"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+  moneroredis:
+    container_name: moneroredis
+    hostname: moneroredis
+    image: redis:3
+    volumes:
+      - moneroredis-data:/data
+    networks:
+      - "tor"
+    command: redis-server --appendonly yes
+    restart: always
+    labels:
+      - "traefik.enable=false"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+  moneropool:
+    container_name: moneropool
+    hostname: moneropool
+    build: moneropool/
+    image: sofwerx/moneropool
+    networks:
+      - "tor"
+#    restart: always
+    ports:
+      - 3333
+      - 5555
+      - 7777
+    environment:
+      HIDDENSERVICE_NAME: moneropool
+      HIDDENSERVICE_PORT: 3000
+      PORT: 3000
+      API_PORT: 8117
+      POOL_ADDRESS: ${POOL_ADDRESS}
+      ADMIN_PASSWORD: ${MONEROPOOL_ADMIN_PASSWORD}
+    labels:
+      - "traefik.enable=false"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+# docker run -ti --rm --device=/dev/nvidiactl --device=/dev/nvidia-uvm --device=/dev/nvidia-uvm-tools --device=/dev/nvidia0 --device=/dev/nvidia1 --device=/dev/nvidia2 --device=/dev/nvidia3 --volume-driver=nvidia-docker --volume=nvidia_driver_384.81:/usr/local/nvidia:ro sofwerx/xmrminer:latest bash
+
+  xmrminer:
+    container_name: xmrminer
+    hostname: xmrminer
+    build:
+      context: xmrminer/
+      dockerfile: Dockerfile.x86_64
+#      dockerfile: Dockerfile.ppc64le
+    image: sofwerx/xmrminer
+#    networks:
+#      - "tor"
+#    volumes:
+#      - nvidia_driver:/usr/local/nvidia:ro
+#      - /usr/lib/nvidia-384:/usr/lib/nvidia-384:ro
+#      - /usr/lib/nvidia-384-prime:/usr/lib/nvidia-384-prime:ro
+#      - /lib/nvidia-384:/lib/nvidia-384:ro
+    devices:
+      - /dev/nvidia0
+#      - /dev/nvidia1
+#      - /dev/nvidia2
+#      - /dev/nvidia3
+      - /dev/nvidiactl
+      - /dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+    labels:
+      - "traefik.enable=false"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+    command: /xmrMiner/build/xmrMiner --url=stratum+tcp://xmr-usa.dwarfpool.com:8050 --launch=64x56 --bfactor=6 --bsleep=1 --user=44NxHdzAJPVZkfXGnRd7kiGc1xCrg3GPncMwECKCmfbXRhVqhTreT7a2DGWcwCD3f7FnDsu1eCYusaTJoaETPajD3dPTdpQ -p docker_worker_1 --donate=1
+    #command: /xmrMiner/build/xmrMiner --url=stratum+tcp://moneropool:5555 --launch=10x24 --bfactor=4 --bsleep=100 --user=44NxHdzAJPVZkfXGnRd7kiGc1xCrg3GPncMwECKCmfbXRhVqhTreT7a2DGWcwCD3f7FnDsu1eCYusaTJoaETPajD3dPTdpQ -p docker_worker_1 --donate=1
+
+

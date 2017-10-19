@@ -1,0 +1,92 @@
+version: '3'
+
+networks: 
+  default:
+    driver: bridge
+  tor:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+
+volumes:
+  redis-data:
+    driver: local
+  tor-hidden_services:
+    driver: local
+  monero-data:
+    driver: local
+
+services:
+
+  tor:
+    container_name: tor
+    hostname: tor
+    build: tor/
+    image: tor
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - tor-hidden_services:/var/lib/tor/hidden_services
+    #ports:
+      #- 9001:9001
+      #- 9030:9030
+      #- 9050:9050
+    labels:
+      - "traefik.enable=false"
+    networks:
+      - "default"
+      - "tor"
+    labels:
+      - "traefik.enable=false"
+    restart: always
+    environment:
+      ONIONBOAT_HOSTNAME: tor
+      ONIONBOAT_PORT: "9050"
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+  monero:
+    container_name: monero
+    hostname: monero
+    build: monero/
+    image: monero
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 18080:18080
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - monero-data:/home/monero/.bitmonero
+    networks:
+#     - "default"
+      - "tor"
+    labels:
+      - "traefik.enable=false"
+    restart: always
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+  redis:
+    container_name: redis
+    hostname: redis
+    image: redis:3
+    volumes:
+      - redis-data:/data
+    networks:
+      - "tor"
+    command: redis-server --appendonly yes
+    labels:
+      - "traefik.enable=false"
+    restart: always
+    logging:
+      driver: json-file
+      options: 
+        max-size: "20k"
+
+#    environment:
+#      HIDDENSERVICE_NAME: moneropool
+#      HIDDENSERVICE_PORT: 18080
+
