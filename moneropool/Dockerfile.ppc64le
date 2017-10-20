@@ -1,0 +1,52 @@
+From ppc64le/ubuntu:14.04
+
+RUN sed -i -e 's/^.*trusty-security/#/' /etc/apt/sources.list
+RUN apt-get update \
+ && apt-get install -y \
+   git \
+   python-dev \
+   python-pip \
+   build-essential \
+   make \
+   libboost-all-dev \
+   curl \
+   gnupg \
+   gnupg2 \
+   apt-transport-https \
+   lsb-release \
+   python-software-properties \
+   software-properties-common \
+   libtool \
+   autotools-dev \
+   autoconf \
+   pkg-config \
+   libssl-dev \
+   libboost-all-dev \
+   npm \
+   nodejs \
+   nodejs-legacy \
+   libminiupnpc-dev \
+   redis-server 
+
+RUN apt-get install -y libc6-dev
+
+RUN add-apt-repository ppa:bitcoin/bitcoin
+RUN apt-get update
+
+RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.16.1/install.sh | sh
+
+ENV NVM_DIR /root/.nvm
+
+RUN . /root/.nvm/nvm.sh \
+ && nvm install 0.10.25 \
+ && nvm use 0.10.25
+
+RUN git clone https://github.com/Kukunin/node-cryptonote-pool /app
+
+WORKDIR /app
+
+RUN npm install
+
+ADD run.sh /run.sh
+
+CMD /run.sh

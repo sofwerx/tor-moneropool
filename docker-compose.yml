@@ -22,18 +22,13 @@ volumes:
 
 services:
 
-  # Enable docker to auto-run any architecture image using qemu
-  #     docker run --rm --privileged multiarch/qemu-user-static:register --reset
-  multiarch:
-    container_name: multiarch
-    image: multiarch/qemu-user-static:register
-    privileged: true
-
   tor:
     container_name: tor
     hostname: tor
-    build: tor/
-    image: sofwerx/tor
+    build:
+      context: tor/
+      dockerfile: Dockerfile.${ARCH}
+    image: sofwerx/tor:${ARCH}
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - tor-hidden_services:/var/lib/tor/hidden_services
@@ -58,8 +53,10 @@ services:
   monero:
     container_name: monero
     hostname: monero
-    build: monero/
-    image: sofwerx/monero
+    build:
+      context: monero/
+      dockerfile: Dockerfile.${ARCH}
+    image: sofwerx/monero:${ARCH}
     cap_add:
       - IPC_LOCK
     ports:
@@ -101,8 +98,10 @@ services:
   moneropool:
     container_name: moneropool
     hostname: moneropool
-    build: moneropool/
-    image: sofwerx/moneropool
+    build:
+      context: moneropool/
+      dockerfile: Dockerfile.${ARCH}
+    image: sofwerx/moneropool:${ARCH}
     networks:
       - "tor"
 #    restart: always
@@ -131,9 +130,8 @@ services:
     hostname: xmrminer
     build:
       context: xmrminer/
-      dockerfile: Dockerfile.x86_64
-#      dockerfile: Dockerfile.ppc64le
-    image: sofwerx/xmrminer
+      dockerfile: Dockerfile.${ARCH}
+    image: sofwerx/xmrminer:${ARCH}
 #    networks:
 #      - "tor"
 #    volumes:
