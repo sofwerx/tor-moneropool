@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euf -o pipefail
 
+if [ -z "${POOL_ADDRESS}" ]; then
+  echo "ERROR: POOL_ADDRESS is not defined - need a monero address to pay miners from"
+  exit 1
+fi
+
 cat <<EOF > /app/config.tmpl
 /* Used for storage in redis so multiple coins can share the same redis instance. */
 "coin": "monero",
